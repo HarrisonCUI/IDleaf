@@ -243,6 +243,10 @@ unsigned long g_loveBreathingUntilMs = 0;
 unsigned long g_savedBreathingCycleMs = 0;
 uint8_t g_savedDisplayMode = 0;
 uint8_t g_savedMaxBrightness = 255;
+uint32_t g_careGiftSeq = 0;
+String g_careGiftFrom = "Partner";
+String g_careGiftKind = "heart";
+String g_careGiftBits = "";
 #endif
 unsigned long g_lastProximityUpdateMs = 0;
 unsigned long g_lastPersonDetectedMs = 0;
@@ -840,9 +844,24 @@ void startHeartBacklight() {
   g_oledBreathingCycleMs = 900;
 }
 
+void rememberCareGift(const String& sender, const String& kind, const String& bits) {
+  g_careGiftSeq++;
+  g_careGiftFrom = sender;
+  g_careGiftKind = kind;
+  g_careGiftBits = bits;
+}
+
 void receivePartnerHeart(const String& sender) {
+  rememberCareGift(sender, "heart", "");
   startHeartBacklight();
   smartPlantReceiveHeart(sender.c_str());
+  g_lastOledRefreshMs = 0;
+}
+
+void receivePartnerSketch(const String& sender, const String& bits) {
+  rememberCareGift(sender, "sketch", bits);
+  startHeartBacklight();
+  smartPlantReceiveSketch(sender.c_str(), bits.c_str());
   g_lastOledRefreshMs = 0;
 }
 
@@ -1335,7 +1354,7 @@ String getSDFilesOptions() {
 
 String buildIndexHtml() {
   String html;
-  html.reserve(6500);
+  html.reserve(10500);
   html += "<!doctype html><html><head><meta charset='utf-8'>";
   html += "<meta name='viewport' content='width=device-width,initial-scale=1'>";
   html += "<title>XIAO Cam & Mic Test</title>";
@@ -1343,8 +1362,10 @@ String buildIndexHtml() {
   html += ".card{background:#fff;border-radius:12px;padding:16px;max-width:520px;margin:auto;box-shadow:0 2px 10px rgba(0,0,0,.08);}";
   html += "button{padding:10px 14px;margin-right:8px;margin-bottom:8px;}";
   html += "img{width:100%;min-height:180px;background:#111;border-radius:8px;object-fit:contain;}";
-  html += "canvas{width:100%;height:100px;background:#222;border-radius:8px;margin-top:10px;}";
+  html += "canvas{width:100%;height:100px;background:#222;border-radius:8px;margin-top:10px;touch-action:none;}";
+  html += "#drawPad{height:160px;background:#07130f;border:2px solid #4de395;}";
   html += ".sensor{margin:8px 0;padding:10px;background:#f0f3f7;border-radius:8px;}";
+  html += ".pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#e8fff2;color:#166534;margin:2px 0;}";
   html += "code{font-size:13px;}p{line-height:1.4;}</style></head><body><div class='card'>";
   html += "<h2>XIAO Hardware Test</h2>";
   html += "<p>AP: <code>" + String(kApName) + "</code> | IP: <code>" + ipToString(WiFi.softAPIP()) + "</code></p>";
@@ -1367,11 +1388,21 @@ String buildIndexHtml() {
   html += "<button onclick='fetch(\"/led/on\",{method:\"POST\"})'>LED ON</button>";
   html += "<button onclick='fetch(\"/led/off\",{method:\"POST\"})'>LED OFF</button></div>";
 #ifdef ATTRAX_ROUND_DISPLAY_PORT
-  html += "<div class='sensor'><strong>Care Together</strong><p>Send a moment of care to the plant display.</p>";
+  html += "<div class='sensor'><strong>Care Together</strong><p>Draw a heart or tiny picture, then send it to the shared plant screen.</p>";
   html += "<input id='heartFrom' value='Luna' maxlength='16' placeholder='Your name'> ";
   html += "<button onclick='sendHeart()' style='background:#ff6685'>Send heart &lt;3</button>";
-  html += "<button onclick='startPlantDemo()'>Judge demo</button>";
-  html += "<div id='heartState'></div></div>";
+  html += "<canvas id='drawPad' width='160' height='120'></canvas>";
+  html += "<button onclick='drawHeartPad()'>Draw heart</button>";
+  html += "<button onclick='clearPad()'>Clear</button>";
+  html += "<button onclick='sendSketch()' style='background:#4de395'>Send drawing</button>";
+  html += "<div id='heartState'></div><div id='inboxState' class='pill'>Waiting for care gifts...</div>";
+  html += "<hr><strong>Interactive Judge Demo</strong><p>Use fake data and click interactions during the presentation.</p>";
+  html += "<button onclick='startPlantDemo()'>Auto demo</button>";
+  html += "<button onclick='demoAction(\"good\")'>Fake good</button>";
+  html += "<button onclick='demoAction(\"dry\")'>Fake dry</button>";
+  html += "<button onclick='demoAction(\"heart\")'>Fake heart</button>";
+  html += "<button onclick='demoAction(\"sketch\")'>Fake sketch</button>";
+  html += "</div>";
 #endif
   
   html += "<div class='sensor'><strong>Plant Audio (Buzzer)</strong>";
@@ -1403,11 +1434,26 @@ String buildIndexHtml() {
   html += "}catch(e){}}";
   html += "async function setAudioConfig(){const m=document.getElementById('audioMode').value;const p=document.getElementById('audioPattern').value;await fetch('/audio/config?mode='+m+'&pattern='+p,{method:'POST'});pollAudio();}";
 #ifdef ATTRAX_ROUND_DISPLAY_PORT
+  html += "let giftSeq=0;const draw=document.getElementById('drawPad');const dctx=draw.getContext('2d');let drawing=false;";
+  html += "function clearPad(){dctx.fillStyle='#07130f';dctx.fillRect(0,0,draw.width,draw.height);}";
+  html += "function pos(e){const r=draw.getBoundingClientRect();const p=e.touches?e.touches[0]:e;return{x:(p.clientX-r.left)*draw.width/r.width,y:(p.clientY-r.top)*draw.height/r.height};}";
+  html += "function beginDraw(e){drawing=true;const p=pos(e);dctx.beginPath();dctx.moveTo(p.x,p.y);e.preventDefault();}";
+  html += "function moveDraw(e){if(!drawing)return;const p=pos(e);dctx.strokeStyle='#ff6685';dctx.lineWidth=10;dctx.lineCap='round';dctx.lineTo(p.x,p.y);dctx.stroke();e.preventDefault();}";
+  html += "function endDraw(){drawing=false;}";
+  html += "draw.addEventListener('mousedown',beginDraw);draw.addEventListener('mousemove',moveDraw);window.addEventListener('mouseup',endDraw);";
+  html += "draw.addEventListener('touchstart',beginDraw,{passive:false});draw.addEventListener('touchmove',moveDraw,{passive:false});draw.addEventListener('touchend',endDraw);clearPad();";
+  html += "function drawHeartPad(){clearPad();dctx.strokeStyle='#ff6685';dctx.lineWidth=9;dctx.lineCap='round';dctx.beginPath();dctx.moveTo(80,92);dctx.bezierCurveTo(18,54,42,18,80,42);dctx.bezierCurveTo(118,18,142,54,80,92);dctx.stroke();}";
+  html += "function sketchBits(){const img=dctx.getImageData(0,0,draw.width,draw.height).data;let bits='';for(let y=0;y<8;y++){for(let x=0;x<8;x++){let ink=0;for(let yy=0;yy<12;yy+=3){for(let xx=0;xx<20;xx+=4){const px=Math.floor((x+xx/20)*draw.width/8);const py=Math.floor((y+yy/12)*draw.height/8);const i=(py*draw.width+px)*4;if(img[i]>80||img[i+1]>80||img[i+2]>80)ink++;}}bits+=ink>2?'1':'0';}}return bits;}";
   html += "async function sendHeart(){const n=encodeURIComponent(document.getElementById('heartFrom').value||'Partner');";
   html += "const r=await fetch('/plant/heart?from='+n,{method:'POST'});";
   html += "document.getElementById('heartState').textContent=r.ok?'Heart sent to display!':'Send failed';}";
+  html += "async function sendSketch(){const n=encodeURIComponent(document.getElementById('heartFrom').value||'Partner');const bits=sketchBits();";
+  html += "const r=await fetch('/plant/sketch?from='+n+'&bits='+bits,{method:'POST'});";
+  html += "document.getElementById('heartState').textContent=r.ok?'Drawing sent to display!':'Send failed';}";
   html += "async function startPlantDemo(){const r=await fetch('/plant/demo',{method:'POST'});";
   html += "document.getElementById('heartState').textContent=r.ok?'Demo started on display':'Demo failed';}";
+  html += "async function demoAction(a){const r=await fetch('/plant/demo-event?action='+a,{method:'POST'});document.getElementById('heartState').textContent=r.ok?'Demo action: '+a:'Demo action failed';}";
+  html += "async function pollInbox(){try{const r=await fetch('/plant/inbox');const d=await r.json();if(d.seq&&d.seq!==giftSeq){giftSeq=d.seq;document.getElementById('inboxState').textContent='Latest '+d.kind+' from '+d.from;}}catch(e){}setTimeout(pollInbox,1500);}pollInbox();";
 #endif
   html += "setInterval(pollAudio, 2000); pollAudio();";
   html += "async function pollMic(){try{const r=await fetch('/audio-frame');const d=await r.json();if(d.ok&&d.samples){";
@@ -1542,10 +1588,49 @@ void setupWebServer() {
     Serial.printf("Plant heart received from %s\n", sender.c_str());
     g_server.send(200, "application/json", "{\"ok\":true,\"effect\":\"heartbeat\"}");
   });
+  g_server.on("/plant/sketch", HTTP_POST, []() {
+    String sender = g_server.hasArg("from") ? g_server.arg("from") : "Partner";
+    String bits = g_server.hasArg("bits") ? g_server.arg("bits") : "";
+    sender.trim();
+    bits.trim();
+    if (sender.length() == 0) sender = "Partner";
+    if (sender.length() > 16) sender = sender.substring(0, 16);
+    String clean;
+    clean.reserve(64);
+    for (uint16_t i = 0; i < bits.length() && clean.length() < 64; i++) {
+      clean += bits[i] == '1' ? '1' : '0';
+    }
+    while (clean.length() < 64) clean += '0';
+    receivePartnerSketch(sender, clean);
+    Serial.printf("Plant sketch received from %s\n", sender.c_str());
+    g_server.send(200, "application/json", "{\"ok\":true,\"effect\":\"sketch\"}");
+  });
   g_server.on("/plant/demo", HTTP_POST, []() {
     smartPlantStartDemo();
     Serial.println("Plant judge demo started");
     g_server.send(200, "application/json", "{\"ok\":true,\"demo\":\"started\"}");
+  });
+  g_server.on("/plant/demo-event", HTTP_POST, []() {
+    String action = g_server.hasArg("action") ? g_server.arg("action") : "next";
+    action.trim();
+    if (action.length() == 0) action = "next";
+    smartPlantDemoAction(action.c_str());
+    Serial.printf("Plant demo action: %s\n", action.c_str());
+    g_server.send(200, "application/json", "{\"ok\":true}");
+  });
+  g_server.on("/plant/inbox", HTTP_GET, []() {
+    String json;
+    json.reserve(160);
+    json += "{\"seq\":";
+    json += g_careGiftSeq;
+    json += ",\"from\":\"";
+    json += g_careGiftFrom;
+    json += "\",\"kind\":\"";
+    json += g_careGiftKind;
+    json += "\",\"bits\":\"";
+    json += g_careGiftBits;
+    json += "\"}";
+    g_server.send(200, "application/json", json);
   });
 #endif
   g_server.on("/status", HTTP_GET, []() {

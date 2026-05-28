@@ -28,12 +28,18 @@ Monstera, Mint, Succulent, Peace Lily or Pothos.
 The current Round Display wiring occupies `A0`, so soil moisture is displayed as `--`
 until the moisture sensor is moved to a free ADC pin and enabled in `pollSensors()`.
 To send a heart, connect a phone to the device access point, open `http://192.168.4.1`,
-and press `Send heart <3` in the `Care Together` card. The screen displays the heart,
-adds it to care history and runs an 8-second heartbeat backlight animation.
+and press `Send heart <3` in the `Care Together` card. The same page also includes
+a small drawing pad: users can draw a heart or simple 8 x 8 sketch and send it as
+a care gift. The round display shows a tappable notification first; tapping the
+screen reveals the heart or drawing as a pop-up and runs the heartbeat backlight
+animation.
 
 For judging presentations, press `DEMO` on the display `CARE` page or `Judge demo`
-in the phone control page. It automatically demonstrates the five plant choices,
-sprite expressions, growth history, shared care history and incoming heart response.
+in the phone control page. It demonstrates the five plant choices, sprite
+expressions, growth history, shared care history and incoming heart response.
+During demo mode, the screen and phone page can also inject fake good/dry sensor
+data, fake hearts and fake sketches so judges can interact instead of only watching
+an automatic sequence.
 
 See [docs/SMART_PLANT_SOLUTION.md](docs/SMART_PLANT_SOLUTION.md) for the complete
 interaction plan and [assets/design/smart_plant_round_flow_v3.svg](assets/design/smart_plant_round_flow_v3.svg)

@@ -27,6 +27,7 @@ constexpr uint32_t kDemoStageMs = 3000;
 constexpr uint32_t kIdleReturnMs = 45000;
 constexpr uint32_t kCuriousAfterMs = 18000;
 constexpr uint32_t kCuriousDurationMs = 5500;
+constexpr uint32_t kGiftPopupMs = 4500;
 
 enum class Page : uint8_t {
   kHome,
@@ -67,6 +68,8 @@ struct UiState {
   lv_obj_t* content = nullptr;
   lv_obj_t* chrome = nullptr;
   lv_obj_t* toast = nullptr;
+  lv_obj_t* toastText = nullptr;
+  lv_obj_t* giftPopup = nullptr;
   lv_obj_t* idleHint = nullptr;
   lv_obj_t* idleMood = nullptr;
   lv_obj_t* homeScore = nullptr;
@@ -93,6 +96,10 @@ struct UiState {
   bool demoActive = false;
   bool idleMode = true;
   bool requestBacklight = false;
+  bool pendingGift = false;
+  char giftSender[17] = {};
+  char giftKind[9] = {};
+  char giftBits[65] = {};
   char events[kEventSize][34] = {};
   uint8_t eventCount = 0;
 };
@@ -145,6 +152,10 @@ lv_obj_t* label(lv_obj_t* parent, const char* text, lv_color_t textColor,
 void centered(lv_obj_t* obj) {
   lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_CENTER, 0);
   lv_obj_center(obj);
+}
+
+void constrainSender(char* dest, size_t destSize, const char* sender) {
+  snprintf(dest, destSize, "%s", sender && sender[0] ? sender : "Partner");
 }
 
 void addEvent(const char* text) {
@@ -279,6 +290,26 @@ void drawSprite(lv_obj_t* parent, Mood mood) {
   drawSpriteAt(parent, mood, 30, 49, 72, 55, false);
 }
 
+void drawHeart(lv_obj_t* parent, int cx, int cy, int scale, uint32_t fill) {
+  panel(parent, cx - scale * 3, cy - scale * 2, scale * 2, scale * 2, LV_RADIUS_CIRCLE, fill);
+  panel(parent, cx + scale, cy - scale * 2, scale * 2, scale * 2, LV_RADIUS_CIRCLE, fill);
+  panel(parent, cx - scale * 3, cy - scale, scale * 6, scale * 3, scale, fill);
+  panel(parent, cx - scale * 2, cy + scale * 2, scale * 4, scale, scale / 2, fill);
+  panel(parent, cx - scale, cy + scale * 3, scale * 2, scale, scale / 2, fill);
+}
+
+void drawSketchBits(lv_obj_t* parent, const char* bits, int x, int y, int cell) {
+  lv_obj_t* grid = panel(parent, x, y, cell * 8 + 8, cell * 8 + 8, 10, kPanel);
+  for (uint8_t row = 0; row < 8; row++) {
+    for (uint8_t col = 0; col < 8; col++) {
+      const uint8_t index = row * 8 + col;
+      if (bits && bits[index] == '1') {
+        panel(grid, 4 + col * cell, 4 + row * cell, cell - 1, cell - 1, 2, kRed);
+      }
+    }
+  }
+}
+
 void updateNav() {
   for (uint8_t i = 0; i < 3; i++) {
     const Page navPage = i == 0 ? Page::kHome : (i == 1 ? Page::kTrend : Page::kCare);
@@ -290,6 +321,11 @@ void updateNav() {
 
 void renderPage();
 void renderIdle();
+void showGiftPopup();
+void seedDemoHistory();
+void onDemoGoodClicked(lv_event_t* event);
+void onDemoDryClicked(lv_event_t* event);
+void onDemoHeartClicked(lv_event_t* event);
 
 void wakeApp(Page page = Page::kHome) {
   ui.idleMode = false;
@@ -308,6 +344,10 @@ void enterIdle() {
 
 void onRootClicked(lv_event_t* event) {
   (void)event;
+  if (ui.pendingGift) {
+    showGiftPopup();
+    return;
+  }
   if (ui.idleMode) {
     wakeApp(Page::kHome);
   } else {
@@ -315,10 +355,16 @@ void onRootClicked(lv_event_t* event) {
   }
 }
 
+void onToastClicked(lv_event_t* event) {
+  (void)event;
+  if (ui.pendingGift) showGiftPopup();
+}
+
 void beginDemo() {
   ui.demoActive = true;
   ui.demoStartedMs = millis();
   ui.demoStage = 255;
+  seedDemoHistory();
   wakeApp(Page::kHome);
   addEvent("Demo mode started");
 }
@@ -380,10 +426,25 @@ void renderHome() {
   ui.homeReading = label(ui.content, "--", color(kText), &lv_font_montserrat_12);
   lv_obj_align(ui.homeReading, LV_ALIGN_TOP_MID, 0, 149);
 
-  lv_obj_t* plantButton = panel(ui.content, 67, 166, 106, 20, 10, kSelected);
-  lv_obj_add_flag(plantButton, LV_OBJ_FLAG_CLICKABLE);
-  lv_obj_add_event_cb(plantButton, onChangePlantClicked, LV_EVENT_CLICKED, nullptr);
-  centered(label(plantButton, "CHANGE PLANT", color(kMint), &lv_font_montserrat_8));
+  if (ui.demoActive) {
+    lv_obj_t* good = panel(ui.content, 38, 166, 48, 20, 10, kGreen);
+    lv_obj_add_flag(good, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(good, onDemoGoodClicked, LV_EVENT_CLICKED, nullptr);
+    centered(label(good, "GOOD", color(kBg), &lv_font_montserrat_8));
+    lv_obj_t* dry = panel(ui.content, 96, 166, 48, 20, 10, 0x4c2e20);
+    lv_obj_add_flag(dry, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(dry, onDemoDryClicked, LV_EVENT_CLICKED, nullptr);
+    centered(label(dry, "DRY", color(kSun), &lv_font_montserrat_8));
+    lv_obj_t* heart = panel(ui.content, 154, 166, 48, 20, 10, 0x392332);
+    lv_obj_add_flag(heart, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(heart, onDemoHeartClicked, LV_EVENT_CLICKED, nullptr);
+    centered(label(heart, "HEART", color(kRed), &lv_font_montserrat_8));
+  } else {
+    lv_obj_t* plantButton = panel(ui.content, 67, 166, 106, 20, 10, kSelected);
+    lv_obj_add_flag(plantButton, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(plantButton, onChangePlantClicked, LV_EVENT_CLICKED, nullptr);
+    centered(label(plantButton, "CHANGE PLANT", color(kMint), &lv_font_montserrat_8));
+  }
   updateHomeLabels();
 }
 
@@ -456,6 +517,39 @@ void onCareClicked(lv_event_t* event) {
   renderPage();
 }
 
+void receiveGift(const char* sender, const char* kind, const char* bits) {
+  constrainSender(ui.giftSender, sizeof(ui.giftSender), sender);
+  snprintf(ui.giftKind, sizeof(ui.giftKind), "%s", kind && kind[0] ? kind : "heart");
+  if (bits && bits[0]) {
+    snprintf(ui.giftBits, sizeof(ui.giftBits), "%s", bits);
+  } else {
+    ui.giftBits[0] = '\0';
+  }
+  ui.pendingGift = true;
+  ui.mood = Mood::kLove;
+  ui.loveUntilMs = millis() + 8000;
+  ui.requestBacklight = true;
+
+  char event[34];
+  snprintf(event, sizeof(event), "%s | sent %s", ui.giftSender,
+           strcmp(ui.giftKind, "sketch") == 0 ? "drawing" : "heart");
+  addEvent(event);
+
+  if (ui.toastText) {
+    char toast[42];
+    snprintf(toast, sizeof(toast), "%s FROM %s  TAP",
+             strcmp(ui.giftKind, "sketch") == 0 ? "DRAWING" : "<3",
+             ui.giftSender);
+    lv_label_set_text(ui.toastText, toast);
+  }
+  if (ui.toast) {
+    lv_obj_clear_flag(ui.toast, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(ui.toast);
+  }
+  if (ui.idleMode) renderIdle();
+  else if (ui.page == Page::kCare || ui.page == Page::kHome) renderPage();
+}
+
 void onDemoClicked(lv_event_t* event) {
   (void)event;
   beginDemo();
@@ -526,7 +620,45 @@ void renderIdle() {
 
 void hideToast(lv_timer_t* timer) {
   (void)timer;
+  if (ui.toast && !ui.pendingGift) lv_obj_add_flag(ui.toast, LV_OBJ_FLAG_HIDDEN);
+}
+
+void hideGiftPopup(lv_timer_t* timer) {
+  (void)timer;
+  if (ui.giftPopup) {
+    lv_obj_delete(ui.giftPopup);
+    ui.giftPopup = nullptr;
+  }
+}
+
+void showGiftPopup() {
+  ui.pendingGift = false;
+  ui.lastInteractionMs = millis();
   if (ui.toast) lv_obj_add_flag(ui.toast, LV_OBJ_FLAG_HIDDEN);
+  if (ui.giftPopup) lv_obj_delete(ui.giftPopup);
+
+  ui.giftPopup = panel(ui.root, 25, 42, 190, 136, 24, 0x311b2b);
+  lv_obj_set_style_border_width(ui.giftPopup, 1, 0);
+  lv_obj_set_style_border_color(ui.giftPopup, color(kRed), 0);
+  lv_obj_move_foreground(ui.giftPopup);
+
+  char title[38];
+  snprintf(title, sizeof(title), "%s from %s",
+           strcmp(ui.giftKind, "sketch") == 0 ? "DRAWING" : "LOVE", ui.giftSender);
+  lv_obj_t* titleLabel = label(ui.giftPopup, title, color(kText), &lv_font_montserrat_12);
+  lv_obj_align(titleLabel, LV_ALIGN_TOP_MID, 0, 12);
+
+  if (strcmp(ui.giftKind, "sketch") == 0) {
+    drawSketchBits(ui.giftPopup, ui.giftBits, 61, 40, 8);
+  } else {
+    drawHeart(ui.giftPopup, 95, 72, 12, kRed);
+    lv_obj_set_pos(label(ui.giftPopup, "<3", color(kText), &lv_font_montserrat_16), 82, 63);
+  }
+
+  lv_obj_t* hint = label(ui.giftPopup, "care together", color(kSubtext));
+  lv_obj_align(hint, LV_ALIGN_BOTTOM_MID, 0, -12);
+  lv_timer_t* timer = lv_timer_create(hideGiftPopup, kGiftPopupMs, nullptr);
+  lv_timer_set_repeat_count(timer, 1);
 }
 
 void saveReading() {
@@ -540,6 +672,45 @@ void saveReading() {
   ui.lastSampleMs = millis();
 }
 
+void setDemoReading(int soil, float temperature, float humidity, Mood mood, const char* eventText) {
+  ui.demoActive = true;
+  ui.soilPercent = soil;
+  ui.temperatureC = temperature;
+  ui.humidityPct = humidity;
+  ui.mood = mood;
+  ui.temporaryMoodUntilMs = 0;
+  ui.loveUntilMs = 0;
+  if (eventText) addEvent(eventText);
+  saveReading();
+}
+
+void seedDemoHistory() {
+  ui.historyCount = 0;
+  ui.historyNext = 0;
+  setDemoReading(58, 24.0f, 64.0f, Mood::kHappy, "Demo | ideal day");
+  setDemoReading(34, 29.0f, 43.0f, Mood::kSad, "Demo | dry soil");
+  setDemoReading(62, 23.0f, 67.0f, Mood::kNormal, "Demo | recovered");
+}
+
+void onDemoGoodClicked(lv_event_t* event) {
+  (void)event;
+  setDemoReading(62, 24.0f, 66.0f, Mood::kHappy, "Demo | happy data");
+  ui.page = Page::kHome;
+  renderPage();
+}
+
+void onDemoDryClicked(lv_event_t* event) {
+  (void)event;
+  setDemoReading(22, 30.0f, 38.0f, Mood::kSad, "Demo | needs water");
+  ui.page = Page::kHome;
+  renderPage();
+}
+
+void onDemoHeartClicked(lv_event_t* event) {
+  (void)event;
+  receiveGift("Judge", "heart", nullptr);
+}
+
 void updateDemo() {
   if (!ui.demoActive) return;
   const uint8_t stage = static_cast<uint8_t>((millis() - ui.demoStartedMs) / kDemoStageMs);
@@ -549,7 +720,7 @@ void updateDemo() {
     case 0:
       ui.selectedPlant = 0;
       ui.page = Page::kHome;
-      ui.mood = Mood::kNormal;
+      setDemoReading(62, 24.0f, 66.0f, Mood::kHappy, "Demo | good env");
       break;
     case 1:
       ui.page = Page::kPlants;
@@ -557,13 +728,13 @@ void updateDemo() {
     case 2:
       ui.selectedPlant = 3;
       ui.page = Page::kHome;
-      ui.mood = Mood::kCurious;
+      setDemoReading(48, 22.0f, 61.0f, Mood::kCurious, "Demo | new plant");
       break;
     case 3:
-      ui.mood = Mood::kSad;
+      setDemoReading(20, 31.0f, 39.0f, Mood::kSad, "Demo | dry warning");
       break;
     case 4:
-      ui.mood = Mood::kHappy;
+      setDemoReading(63, 24.0f, 67.0f, Mood::kHappy, "Demo | watered");
       break;
     case 5:
       ui.page = Page::kTrend;
@@ -574,10 +745,7 @@ void updateDemo() {
       break;
     case 7:
       ui.page = Page::kHome;
-      ui.mood = Mood::kLove;
-      ui.loveUntilMs = millis() + kDemoStageMs;
-      ui.requestBacklight = true;
-      addEvent("Luna | sent a heart");
+      receiveGift("Luna", "heart", nullptr);
       break;
     default:
       ui.demoActive = false;
@@ -630,9 +798,14 @@ lv_obj_t* smartPlantCreate(lv_obj_t* parent) {
   lv_obj_add_flag(ui.chrome, LV_OBJ_FLAG_HIDDEN);
 
   ui.toast = panel(ui.root, 42, 73, 156, 46, 17, 0x392332);
+  lv_obj_add_flag(ui.toast, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_add_event_cb(ui.toast, onToastClicked, LV_EVENT_CLICKED, nullptr);
   lv_obj_set_style_border_width(ui.toast, 1, 0);
   lv_obj_set_style_border_color(ui.toast, color(kRed), 0);
-  centered(label(ui.toast, "<3  LOVE RECEIVED", color(kRed), &lv_font_montserrat_12));
+  ui.toastText = label(ui.toast, "<3  LOVE RECEIVED", color(kRed), &lv_font_montserrat_12);
+  lv_obj_set_width(ui.toastText, 134);
+  lv_label_set_long_mode(ui.toastText, LV_LABEL_LONG_DOT);
+  centered(ui.toastText);
   lv_obj_add_flag(ui.toast, LV_OBJ_FLAG_HIDDEN);
 
   addEvent("Garden is ready");
@@ -642,6 +815,11 @@ lv_obj_t* smartPlantCreate(lv_obj_t* parent) {
 
 void smartPlantUpdate(int soilPercent, float temperatureC, float humidityPct, uint8_t phonesOnline) {
   const uint32_t now = millis();
+  if (ui.demoActive) {
+    ui.phonesOnline = phonesOnline;
+    updateDemo();
+    return;
+  }
   const bool temperatureChanged = isnan(temperatureC) != isnan(ui.temperatureC) ||
       (!isnan(temperatureC) && temperatureC != ui.temperatureC);
   const bool humidityChanged = isnan(humidityPct) != isnan(ui.humidityPct) ||
@@ -656,9 +834,6 @@ void smartPlantUpdate(int soilPercent, float temperatureC, float humidityPct, ui
       (ui.historyCount == 0 || now - ui.lastSampleMs >= kSampleIntervalMs)) {
     saveReading();
   }
-  updateDemo();
-  if (ui.demoActive) return;
-
   if (!ui.idleMode && static_cast<long>(now - (ui.lastInteractionMs + kIdleReturnMs)) >= 0) {
     enterIdle();
   }
@@ -701,25 +876,43 @@ void smartPlantUpdate(int soilPercent, float temperatureC, float humidityPct, ui
 }
 
 void smartPlantReceiveHeart(const char* sender) {
-  char event[34];
-  snprintf(event, sizeof(event), "%s | sent a heart", sender && sender[0] ? sender : "Partner");
-  addEvent(event);
-  ui.mood = Mood::kLove;
-  ui.loveUntilMs = millis() + 8000;
-  if (ui.idleMode) {
-    renderIdle();
-  }
-  if (ui.toast) {
-    lv_obj_clear_flag(ui.toast, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_move_foreground(ui.toast);
-    lv_timer_t* timer = lv_timer_create(hideToast, 4200, nullptr);
-    lv_timer_set_repeat_count(timer, 1);
-  }
-  if (!ui.idleMode && (ui.page == Page::kCare || ui.page == Page::kHome)) renderPage();
+  receiveGift(sender, "heart", nullptr);
+}
+
+void smartPlantReceiveSketch(const char* sender, const char* bits) {
+  receiveGift(sender, "sketch", bits);
 }
 
 void smartPlantStartDemo() {
   beginDemo();
+}
+
+void smartPlantDemoAction(const char* action) {
+  ui.demoActive = true;
+  ui.demoStartedMs = millis();
+  if (!action || strcmp(action, "next") == 0) {
+    ui.demoStage = 255;
+    updateDemo();
+    return;
+  }
+  if (strcmp(action, "good") == 0) {
+    setDemoReading(62, 24.0f, 66.0f, Mood::kHappy, "Demo | good env");
+    ui.page = Page::kHome;
+  } else if (strcmp(action, "dry") == 0) {
+    setDemoReading(22, 30.0f, 38.0f, Mood::kSad, "Demo | dry env");
+    ui.page = Page::kHome;
+  } else if (strcmp(action, "heart") == 0) {
+    receiveGift("Judge", "heart", nullptr);
+    ui.page = Page::kHome;
+  } else if (strcmp(action, "sketch") == 0) {
+    receiveGift("Judge", "sketch", "0001100000111100011111100111111000111100000110000000000000000000");
+    ui.page = Page::kHome;
+  } else if (strcmp(action, "care") == 0) {
+    addEvent("Demo | tapped watering");
+    ui.mood = Mood::kHappy;
+    ui.page = Page::kCare;
+  }
+  wakeApp(ui.page);
 }
 
 bool smartPlantConsumeBacklightRequest() {

@@ -35,12 +35,18 @@ and supports shared care moments from two phones.
    - Shows care history.
    - Shows connected phone count from the device Wi-Fi AP.
    - A phone can send a heart from `http://192.168.4.1`.
-   - Received hearts switch the sprite to loved state and trigger the backlight
-     heartbeat effect.
+   - A phone can draw a heart or simple picture on the web canvas and send it as
+     an 8 x 8 sketch.
+   - Received hearts or sketches show a tappable prompt on the round display.
+   - Tapping the prompt pops the heart or sketch onto the screen and triggers the
+     backlight heartbeat effect.
 
 6. Judge demo
    - Runs through plant selection, status changes, history, care together and
      incoming heart response.
+   - Supports interaction during the demo: fake good data, fake dry data, fake
+     heart and fake sketch actions are available from the phone page and selected
+     screen controls.
    - Can be started from the display care page or the phone web page.
 
 ## Sprite States
