@@ -249,8 +249,8 @@ void drawSpriteEye(lv_obj_t* parent, int x, int y, int width, int height,
 }
 
 void drawBlinkEyes(lv_obj_t* parent, int leftX, int rightX, int y, int width, int height) {
-  drawSpriteEye(parent, leftX, y, width, height, kMint);
-  drawSpriteEye(parent, rightX, y, width, height, kMint);
+  drawSpriteEye(parent, leftX, y, width, height, kSpriteEye);
+  drawSpriteEye(parent, rightX, y, width, height, kSpriteEye);
 }
 
 void drawSpriteAt(lv_obj_t* parent, Mood mood, int x, int y, int width, int height,
@@ -268,25 +268,20 @@ void drawSpriteAt(lv_obj_t* parent, Mood mood, int x, int y, int width, int heig
   } else {
   switch (mood) {
     case Mood::kHappy:
-      drawSpriteEye(sprite, px(20), py(28), px(15), py(7), kMint);
-      drawSpriteEye(sprite, px(51), py(28), px(15), py(7), kMint);
+      drawSpriteEye(sprite, px(20), py(29), px(15), py(7));
+      drawSpriteEye(sprite, px(51), py(29), px(15), py(7));
       break;
     case Mood::kSad:
-      drawSpriteEye(sprite, px(22), py(24), px(12), py(20));
-      drawSpriteEye(sprite, px(52), py(24), px(12), py(20));
-      panel(sprite, px(33), py(45), px(4), py(7), LV_RADIUS_CIRCLE, kBlue);
+      drawSpriteEye(sprite, px(22), py(27), px(12), py(17));
+      drawSpriteEye(sprite, px(52), py(27), px(12), py(17));
       break;
     case Mood::kCurious:
-      drawSpriteEye(sprite, px(20), py(19), px(14), py(28));
-      drawSpriteEye(sprite, px(52), py(19), px(14), py(28));
-      panel(sprite, px(24), py(25), px(5), py(5), LV_RADIUS_CIRCLE, kMint);
-      panel(sprite, px(56), py(25), px(5), py(5), LV_RADIUS_CIRCLE, kMint);
+      drawSpriteEye(sprite, px(19), py(18), px(15), py(30));
+      drawSpriteEye(sprite, px(52), py(18), px(15), py(30));
       break;
     case Mood::kLove:
-      drawSpriteEye(sprite, px(18), py(21), px(17), py(24), kRed);
-      drawSpriteEye(sprite, px(51), py(21), px(17), py(24), kRed);
-      panel(sprite, px(24), py(27), px(5), py(5), LV_RADIUS_CIRCLE, kSpriteEye);
-      panel(sprite, px(57), py(27), px(5), py(5), LV_RADIUS_CIRCLE, kSpriteEye);
+      drawSpriteEye(sprite, px(18), py(21), px(17), py(24));
+      drawSpriteEye(sprite, px(51), py(21), px(17), py(24));
       break;
     case Mood::kNormal:
     default:

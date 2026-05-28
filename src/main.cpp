@@ -1357,18 +1357,39 @@ String buildIndexHtml() {
   html.reserve(10500);
   html += "<!doctype html><html><head><meta charset='utf-8'>";
   html += "<meta name='viewport' content='width=device-width,initial-scale=1'>";
-  html += "<title>XIAO Cam & Mic Test</title>";
+  html += "<title>IDleaf Care Console</title>";
   html += "<style>body{font-family:Arial,sans-serif;margin:20px;background:#f5f5f5;color:#111;}";
   html += ".card{background:#fff;border-radius:12px;padding:16px;max-width:520px;margin:auto;box-shadow:0 2px 10px rgba(0,0,0,.08);}";
   html += "button{padding:10px 14px;margin-right:8px;margin-bottom:8px;}";
   html += "img{width:100%;min-height:180px;background:#111;border-radius:8px;object-fit:contain;}";
   html += "canvas{width:100%;height:100px;background:#222;border-radius:8px;margin-top:10px;touch-action:none;}";
-  html += "#drawPad{height:160px;background:#07130f;border:2px solid #4de395;}";
+  html += "#drawPad{height:190px;background:#07130f;border:3px solid #4de395;box-sizing:border-box;}";
   html += ".sensor{margin:8px 0;padding:10px;background:#f0f3f7;border-radius:8px;}";
+  html += ".care{background:#07130f;color:#e5faee;border:2px solid #4de395;}";
+  html += ".care input{padding:10px;border-radius:8px;border:1px solid #4de395;margin:6px 0;max-width:180px;}";
+  html += ".care button{border:0;border-radius:999px;font-weight:bold;}";
   html += ".pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#e8fff2;color:#166534;margin:2px 0;}";
   html += "code{font-size:13px;}p{line-height:1.4;}</style></head><body><div class='card'>";
-  html += "<h2>XIAO Hardware Test</h2>";
+  html += "<h2>IDleaf Care Console</h2>";
   html += "<p>AP: <code>" + String(kApName) + "</code> | IP: <code>" + ipToString(WiFi.softAPIP()) + "</code></p>";
+#ifdef ATTRAX_ROUND_DISPLAY_PORT
+  html += "<div class='sensor care'><strong>Care Together - Draw & Send</strong><p>在下面画爱心或小图，然后发送到圆屏。</p>";
+  html += "<input id='heartFrom' value='Luna' maxlength='16' placeholder='Your name'> ";
+  html += "<button onclick='sendHeart()' style='background:#ff6685;color:white'>Send heart &lt;3</button>";
+  html += "<canvas id='drawPad' width='160' height='120'></canvas>";
+  html += "<button onclick='drawHeartPad()' style='background:#ff6685;color:white'>Draw heart</button>";
+  html += "<button onclick='clearPad()' style='background:#e5faee;color:#07130f'>Clear</button>";
+  html += "<button onclick='sendSketch()' style='background:#4de395;color:#07130f'>Send drawing</button>";
+  html += "<div id='heartState'></div><div id='inboxState' class='pill'>Waiting for care gifts...</div>";
+  html += "<hr><strong>Interactive Judge Demo</strong><p>Use fake data and click interactions during the presentation.</p>";
+  html += "<button onclick='startPlantDemo()' style='background:#a7f6c8;color:#07130f'>Auto demo</button>";
+  html += "<button onclick='demoAction(\"good\")' style='background:#4de395;color:#07130f'>Fake good</button>";
+  html += "<button onclick='demoAction(\"dry\")' style='background:#f3c45b;color:#07130f'>Fake dry</button>";
+  html += "<button onclick='demoAction(\"heart\")' style='background:#ff6685;color:white'>Fake heart</button>";
+  html += "<button onclick='demoAction(\"sketch\")' style='background:#e5faee;color:#07130f'>Fake sketch</button>";
+  html += "</div>";
+#endif
+  html += "<h3>Hardware Status</h3>";
   html += "<p>Camera: <code>" + (g_cameraReady ? g_cameraSensor : g_cameraError) + "</code></p>";
   html += "<p>Mic Ready: <code>" + String(g_micReady ? "true" : "false") + "</code></p>";
   html += "<div class='sensor'><strong>Soil Moisture</strong><div id='soilValue'>Loading...</div></div>";
@@ -1387,24 +1408,6 @@ String buildIndexHtml() {
   html += "<button onclick='loadImg(\"/capture-colorbar\")'>Colorbar</button>";
   html += "<button onclick='fetch(\"/led/on\",{method:\"POST\"})'>LED ON</button>";
   html += "<button onclick='fetch(\"/led/off\",{method:\"POST\"})'>LED OFF</button></div>";
-#ifdef ATTRAX_ROUND_DISPLAY_PORT
-  html += "<div class='sensor'><strong>Care Together</strong><p>Draw a heart or tiny picture, then send it to the shared plant screen.</p>";
-  html += "<input id='heartFrom' value='Luna' maxlength='16' placeholder='Your name'> ";
-  html += "<button onclick='sendHeart()' style='background:#ff6685'>Send heart &lt;3</button>";
-  html += "<canvas id='drawPad' width='160' height='120'></canvas>";
-  html += "<button onclick='drawHeartPad()'>Draw heart</button>";
-  html += "<button onclick='clearPad()'>Clear</button>";
-  html += "<button onclick='sendSketch()' style='background:#4de395'>Send drawing</button>";
-  html += "<div id='heartState'></div><div id='inboxState' class='pill'>Waiting for care gifts...</div>";
-  html += "<hr><strong>Interactive Judge Demo</strong><p>Use fake data and click interactions during the presentation.</p>";
-  html += "<button onclick='startPlantDemo()'>Auto demo</button>";
-  html += "<button onclick='demoAction(\"good\")'>Fake good</button>";
-  html += "<button onclick='demoAction(\"dry\")'>Fake dry</button>";
-  html += "<button onclick='demoAction(\"heart\")'>Fake heart</button>";
-  html += "<button onclick='demoAction(\"sketch\")'>Fake sketch</button>";
-  html += "</div>";
-#endif
-  
   html += "<div class='sensor'><strong>Plant Audio (Buzzer)</strong>";
   html += "<div id='audioState' style='margin-bottom:8px'>Loading...</div>";
   html += "<select id='audioMode' onchange='setAudioConfig()'><option value='manual'>Manual</option><option value='scheduled'>Scheduled</option><option value='sensor_linked'>Sensor Linked</option></select> ";

@@ -57,11 +57,11 @@ and supports shared care moments from two phones.
 - `CURIOUS`: no sensor is ready yet, or the idle sprite has been waiting for a while.
 - `LOVED`: a phone sends a heart.
 
-The sprite does not use a mouth. Its personality is expressed through glowing eye
-shape, eye color and small eye details. In idle mode it blinks periodically with a
-short closed-eye frame. The current firmware draws the sprite with LVGL primitive
-objects instead of a bitmap, which keeps the asset small and lets expressions
-switch quickly.
+The sprite does not use a mouth or colored pupils. Its personality is expressed
+only through white glowing eye shapes. In idle mode it blinks periodically with a
+short white closed-eye frame. The current firmware draws the sprite with LVGL
+primitive objects instead of a bitmap, which keeps the asset small and lets
+expressions switch quickly.
 
 ## Sensor Assessment
 
