@@ -68,6 +68,7 @@ struct UiState {
   lv_obj_t* chrome = nullptr;
   lv_obj_t* toast = nullptr;
   lv_obj_t* idleHint = nullptr;
+  lv_obj_t* idleMood = nullptr;
   lv_obj_t* homeScore = nullptr;
   lv_obj_t* homeReading = nullptr;
   lv_obj_t* nav[3] = {nullptr, nullptr, nullptr};
@@ -137,6 +138,7 @@ lv_obj_t* label(lv_obj_t* parent, const char* text, lv_color_t textColor,
   lv_label_set_text(obj, text);
   lv_obj_set_style_text_font(obj, font, 0);
   lv_obj_set_style_text_color(obj, textColor, 0);
+  lv_obj_set_style_text_letter_space(obj, 0, 0);
   return obj;
 }
 
@@ -231,12 +233,13 @@ void drawSpriteEye(lv_obj_t* parent, int x, int y, int width, int height) {
 void drawSpriteAt(lv_obj_t* parent, Mood mood, int x, int y, int width, int height,
                   bool showState) {
   lv_obj_t* sprite = panel(parent, x, y, width, height, LV_RADIUS_CIRCLE, kSpriteBody);
+  lv_obj_set_style_clip_corner(sprite, false, 0);
   const float sx = width / 86.0f;
   const float sy = height / 66.0f;
   auto px = [sx](int value) { return static_cast<int>(roundf(value * sx)); };
   auto py = [sy](int value) { return static_cast<int>(roundf(value * sy)); };
-  drawLeaf(sprite, px(31), -py(5), px(17), py(9), kGreen);
-  drawLeaf(sprite, px(46), -py(10), px(22), py(10), kMint);
+  drawLeaf(sprite, px(26), -py(5), px(18), py(9), kGreen);
+  drawLeaf(sprite, px(45), -py(11), px(24), py(10), kMint);
   switch (mood) {
     case Mood::kHappy:
       drawSpriteEye(sprite, px(22), py(27), px(13), py(8));
@@ -249,9 +252,9 @@ void drawSpriteAt(lv_obj_t* parent, Mood mood, int x, int y, int width, int heig
       panel(sprite, px(36), py(53), px(14), py(4), LV_RADIUS_CIRCLE, kBlue);
       break;
     case Mood::kCurious:
-      drawSpriteEye(sprite, px(19), py(18), px(13), py(29));
-      drawSpriteEye(sprite, px(50), py(23), px(18), py(24));
-      panel(sprite, px(38), py(49), px(8), py(8), LV_RADIUS_CIRCLE, kSpriteEye);
+      drawSpriteEye(sprite, px(20), py(19), px(14), py(28));
+      drawSpriteEye(sprite, px(52), py(19), px(14), py(28));
+      panel(sprite, px(40), py(49), px(7), py(7), LV_RADIUS_CIRCLE, kSpriteEye);
       break;
     case Mood::kLove:
       drawSpriteEye(sprite, px(17), py(20), px(18), py(25));
@@ -273,7 +276,7 @@ void drawSpriteAt(lv_obj_t* parent, Mood mood, int x, int y, int width, int heig
 }
 
 void drawSprite(lv_obj_t* parent, Mood mood) {
-  drawSpriteAt(parent, mood, 17, 34, 72, 55, true);
+  drawSpriteAt(parent, mood, 30, 49, 72, 55, false);
 }
 
 void updateNav() {
@@ -326,12 +329,19 @@ void onNavClicked(lv_event_t* event) {
   renderPage();
 }
 
+void onChangePlantClicked(lv_event_t* event) {
+  (void)event;
+  ui.page = Page::kPlants;
+  ui.lastInteractionMs = millis();
+  renderPage();
+}
+
 void updateHomeLabels() {
   if (!ui.homeScore || !ui.homeReading) return;
   const int score = assessmentScore();
-  char scoreValue[30];
-  if (score < 0) snprintf(scoreValue, sizeof(scoreValue), "--  %s", scoreText(score));
-  else snprintf(scoreValue, sizeof(scoreValue), "%d  %s", score, scoreText(score));
+  char scoreValue[24];
+  if (score < 0) snprintf(scoreValue, sizeof(scoreValue), "-- WAIT");
+  else snprintf(scoreValue, sizeof(scoreValue), "%d %s", score, scoreText(score));
   lv_label_set_text(ui.homeScore, scoreValue);
   lv_obj_set_style_text_color(ui.homeScore, color(scoreColor(score)), 0);
 
@@ -350,21 +360,30 @@ void updateHomeLabels() {
 void renderHome() {
   const Plant& plant = kPlants[ui.selectedPlant];
 
-  lv_obj_t* eyebrow = label(ui.content, "NOW GROWING", color(kSubtext));
-  lv_obj_set_pos(eyebrow, 64, 4);
   lv_obj_t* name = label(ui.content, plant.name, color(kText), &lv_font_montserrat_16);
-  lv_obj_set_pos(name, 64, 18);
+  lv_obj_align(name, LV_ALIGN_TOP_MID, 0, 22);
   lv_obj_t* kind = label(ui.content, plant.kind, color(kMint));
-  lv_obj_set_pos(kind, 64, 38);
+  lv_obj_align(kind, LV_ALIGN_TOP_MID, 0, 42);
 
   drawSprite(ui.content, ui.mood);
+  lv_obj_t* state = label(ui.content, moodText(ui.mood),
+                          color(ui.mood == Mood::kLove ? kRed : kGreen),
+                          &lv_font_montserrat_12);
+  lv_obj_set_pos(state, 125, 67);
+  lv_obj_set_width(state, 80);
+  lv_label_set_long_mode(state, LV_LABEL_LONG_DOT);
 
-  lv_obj_t* evaluation = panel(ui.content, 30, 94, 180, 28, 14, kCard);
-  lv_obj_set_pos(label(evaluation, "ENV", color(kSubtext)), 13, 10);
+  lv_obj_t* evaluation = panel(ui.content, 34, 115, 172, 27, 14, kCard);
+  lv_obj_set_pos(label(evaluation, "ENV", color(kSubtext)), 13, 9);
   ui.homeScore = label(evaluation, "--", color(kGreen), &lv_font_montserrat_12);
   lv_obj_align(ui.homeScore, LV_ALIGN_RIGHT_MID, -12, 0);
   ui.homeReading = label(ui.content, "--", color(kText), &lv_font_montserrat_12);
-  lv_obj_align(ui.homeReading, LV_ALIGN_BOTTOM_MID, 0, -6);
+  lv_obj_align(ui.homeReading, LV_ALIGN_TOP_MID, 0, 149);
+
+  lv_obj_t* plantButton = panel(ui.content, 67, 166, 106, 20, 10, kSelected);
+  lv_obj_add_flag(plantButton, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_add_event_cb(plantButton, onChangePlantClicked, LV_EVENT_CLICKED, nullptr);
+  centered(label(plantButton, "CHANGE PLANT", color(kMint), &lv_font_montserrat_8));
   updateHomeLabels();
 }
 
@@ -382,10 +401,11 @@ void onPlantClicked(lv_event_t* event) {
 }
 
 void renderPlants() {
-  lv_obj_set_pos(label(ui.content, "Choose plant", color(kText), &lv_font_montserrat_14), 41, 0);
+  lv_obj_t* title = label(ui.content, "Choose plant", color(kText), &lv_font_montserrat_14);
+  lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 21);
   for (uint8_t i = 0; i < kPlantCount; i++) {
     const Plant& plantItem = kPlants[i];
-    lv_obj_t* row = panel(ui.content, 25, 23 + i * 24, 190, 21, 10,
+    lv_obj_t* row = panel(ui.content, 25, 48 + i * 23, 190, 20, 10,
                           i == ui.selectedPlant ? kSelected : kCard);
     lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(row, onPlantClicked, LV_EVENT_CLICKED,
@@ -401,11 +421,13 @@ void renderPlants() {
 void renderTrend() {
   const int score = assessmentScore();
   char line[44];
-  lv_obj_set_pos(label(ui.content, "Growth history", color(kText), &lv_font_montserrat_14), 37, 0);
+  lv_obj_t* title = label(ui.content, "Growth history", color(kText), &lv_font_montserrat_14);
+  lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 22);
   snprintf(line, sizeof(line), "%s  ENV %s", kPlants[ui.selectedPlant].name, scoreText(score));
-  lv_obj_set_pos(label(ui.content, line, color(scoreColor(score))), 37, 19);
+  lv_obj_t* sub = label(ui.content, line, color(scoreColor(score)));
+  lv_obj_align(sub, LV_ALIGN_TOP_MID, 0, 43);
 
-  lv_obj_t* table = panel(ui.content, 25, 38, 190, 100, 12, kCard);
+  lv_obj_t* table = panel(ui.content, 25, 64, 190, 106, 12, kCard);
   if (ui.historyCount == 0) {
     lv_obj_t* empty = label(table, "Collecting readings...", color(kSubtext));
     lv_obj_center(empty);
@@ -441,21 +463,23 @@ void onDemoClicked(lv_event_t* event) {
 
 void renderCare() {
   char line[38];
-  lv_obj_set_pos(label(ui.content, "Care together", color(kText), &lv_font_montserrat_14), 38, 0);
+  lv_obj_t* title = label(ui.content, "Care together", color(kText), &lv_font_montserrat_14);
+  lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 22);
   snprintf(line, sizeof(line), "%u phone%s online | hearts ready", ui.phonesOnline,
            ui.phonesOnline == 1 ? "" : "s");
-  lv_obj_set_pos(label(ui.content, line, color(kSubtext)), 38, 18);
+  lv_obj_t* sub = label(ui.content, line, color(kSubtext));
+  lv_obj_align(sub, LV_ALIGN_TOP_MID, 0, 43);
 
-  lv_obj_t* events = panel(ui.content, 25, 38, 190, 73, 12, kCard);
+  lv_obj_t* events = panel(ui.content, 25, 64, 190, 74, 12, kCard);
   for (uint8_t i = 0; i < min(static_cast<uint8_t>(3), ui.eventCount); i++) {
     lv_obj_set_pos(label(events, ui.events[i], color(i == 0 ? kMint : kSubtext)), 11, 9 + i * 20);
   }
 
-  lv_obj_t* care = panel(ui.content, 25, 118, 111, 28, 14, kGreen);
+  lv_obj_t* care = panel(ui.content, 25, 153, 111, 27, 14, kGreen);
   lv_obj_add_flag(care, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_add_event_cb(care, onCareClicked, LV_EVENT_CLICKED, nullptr);
   centered(label(care, "LOG WATERING", color(kBg), &lv_font_montserrat_12));
-  lv_obj_t* demo = panel(ui.content, 142, 118, 73, 28, 14, kSelected);
+  lv_obj_t* demo = panel(ui.content, 142, 153, 73, 27, 14, kSelected);
   lv_obj_add_flag(demo, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_add_event_cb(demo, onDemoClicked, LV_EVENT_CLICKED, nullptr);
   centered(label(demo, "DEMO", color(kGreen), &lv_font_montserrat_12));
@@ -492,14 +516,12 @@ void renderIdle() {
   if (!ui.content) return;
   ui.homeScore = nullptr;
   ui.homeReading = nullptr;
+  ui.idleMood = nullptr;
+  ui.idleHint = nullptr;
   lv_obj_clean(ui.content);
-  drawSpriteAt(ui.content, ui.mood, 38, 43, 164, 126, false);
-  lv_obj_t* mood = label(ui.content, moodText(ui.mood),
-                         color(ui.mood == Mood::kLove ? kRed : kGreen),
-                         &lv_font_montserrat_14);
-  lv_obj_align(mood, LV_ALIGN_BOTTOM_MID, 0, -39);
-  ui.idleHint = label(ui.content, "tap to wake", color(kSubtext));
-  lv_obj_align(ui.idleHint, LV_ALIGN_BOTTOM_MID, 0, -23);
+  drawSpriteAt(ui.content, ui.mood, 21, 54, 198, 150, false);
+  ui.idleHint = label(ui.content, "tap", color(kSubtext), &lv_font_montserrat_8);
+  lv_obj_align(ui.idleHint, LV_ALIGN_BOTTOM_MID, 0, -16);
 }
 
 void hideToast(lv_timer_t* timer) {
@@ -587,26 +609,18 @@ lv_obj_t* smartPlantCreate(lv_obj_t* parent) {
   ui.content = lv_obj_create(ui.root);
   resetObject(ui.content);
   lv_obj_set_pos(ui.content, 0, 0);
-  lv_obj_set_size(ui.content, 240, 182);
+  lv_obj_set_size(ui.content, 240, 240);
 
   ui.chrome = lv_obj_create(ui.root);
   resetObject(ui.chrome);
   lv_obj_set_size(ui.chrome, 240, 240);
   lv_obj_set_pos(ui.chrome, 0, 0);
-  panel(ui.chrome, 70, 17, 5, 5, LV_RADIUS_CIRCLE, kGreen);
-  lv_obj_t* brand = label(ui.chrome, "SMART PLANT", color(kGreen));
-  lv_obj_align(brand, LV_ALIGN_TOP_MID, 0, 11);
-  lv_obj_t* plantPicker = panel(ui.chrome, 72, 151, 96, 20, 10, kSelected);
-  lv_obj_add_flag(plantPicker, LV_OBJ_FLAG_CLICKABLE);
-  lv_obj_add_event_cb(plantPicker, onNavClicked, LV_EVENT_CLICKED,
-                      reinterpret_cast<void*>(static_cast<uintptr_t>(Page::kPlants)));
-  centered(label(plantPicker, "CHANGE PLANT", color(kMint), &lv_font_montserrat_8));
 
-  lv_obj_t* navPanel = panel(ui.chrome, 35, 184, 170, 29, 15, kPanel);
+  lv_obj_t* navPanel = panel(ui.chrome, 35, 198, 170, 28, 15, kPanel);
   const char* navLabels[] = {"STATUS", "TREND", "CARE"};
   const Page navPages[] = {Page::kHome, Page::kTrend, Page::kCare};
   for (uint8_t i = 0; i < 3; i++) {
-    ui.nav[i] = panel(navPanel, 4 + i * 55, 3, 52, 23, 12, kSelected);
+    ui.nav[i] = panel(navPanel, 4 + i * 55, 3, 52, 22, 11, kSelected);
     lv_obj_add_flag(ui.nav[i], LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(ui.nav[i], onNavClicked, LV_EVENT_CLICKED,
                         reinterpret_cast<void*>(static_cast<uintptr_t>(navPages[i])));
