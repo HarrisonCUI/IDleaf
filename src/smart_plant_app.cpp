@@ -28,6 +28,9 @@ constexpr uint32_t kIdleReturnMs = 45000;
 constexpr uint32_t kCuriousAfterMs = 18000;
 constexpr uint32_t kCuriousDurationMs = 5500;
 constexpr uint32_t kGiftPopupMs = 4500;
+constexpr uint32_t kBlinkClosedMs = 130;
+constexpr uint32_t kBlinkMinIntervalMs = 2400;
+constexpr uint32_t kBlinkJitterMs = 1600;
 
 enum class Page : uint8_t {
   kHome,
@@ -91,10 +94,13 @@ struct UiState {
   uint32_t temporaryMoodUntilMs = 0;
   uint32_t lastInteractionMs = 0;
   uint32_t idleSinceMs = 0;
+  uint32_t nextBlinkMs = 0;
+  uint32_t blinkUntilMs = 0;
   uint32_t demoStartedMs = 0;
   uint8_t demoStage = 0;
   bool demoActive = false;
   bool idleMode = true;
+  bool blinkClosed = false;
   bool requestBacklight = false;
   bool pendingGift = false;
   char giftSender[17] = {};
@@ -237,12 +243,18 @@ const char* moodText(Mood mood) {
   }
 }
 
-void drawSpriteEye(lv_obj_t* parent, int x, int y, int width, int height) {
-  panel(parent, x, y, width, height, height / 2, kSpriteEye);
+void drawSpriteEye(lv_obj_t* parent, int x, int y, int width, int height,
+                   uint32_t fill = kSpriteEye) {
+  panel(parent, x, y, width, height, max(2, height / 2), fill);
+}
+
+void drawBlinkEyes(lv_obj_t* parent, int leftX, int rightX, int y, int width, int height) {
+  drawSpriteEye(parent, leftX, y, width, height, kMint);
+  drawSpriteEye(parent, rightX, y, width, height, kMint);
 }
 
 void drawSpriteAt(lv_obj_t* parent, Mood mood, int x, int y, int width, int height,
-                  bool showState) {
+                  bool showState, bool blinkClosed) {
   lv_obj_t* sprite = panel(parent, x, y, width, height, LV_RADIUS_CIRCLE, kSpriteBody);
   lv_obj_set_style_clip_corner(sprite, false, 0);
   const float sx = width / 86.0f;
@@ -251,32 +263,37 @@ void drawSpriteAt(lv_obj_t* parent, Mood mood, int x, int y, int width, int heig
   auto py = [sy](int value) { return static_cast<int>(roundf(value * sy)); };
   drawLeaf(sprite, px(26), -py(5), px(18), py(9), kGreen);
   drawLeaf(sprite, px(45), -py(11), px(24), py(10), kMint);
+  if (blinkClosed) {
+    drawBlinkEyes(sprite, px(21), px(52), py(33), px(14), max(2, py(3)));
+  } else {
   switch (mood) {
     case Mood::kHappy:
-      drawSpriteEye(sprite, px(22), py(27), px(13), py(8));
-      drawSpriteEye(sprite, px(51), py(27), px(13), py(8));
-      panel(sprite, px(32), py(45), px(22), py(5), LV_RADIUS_CIRCLE, kGreen);
+      drawSpriteEye(sprite, px(20), py(28), px(15), py(7), kMint);
+      drawSpriteEye(sprite, px(51), py(28), px(15), py(7), kMint);
       break;
     case Mood::kSad:
-      drawSpriteEye(sprite, px(22), py(23), px(12), py(22));
-      drawSpriteEye(sprite, px(52), py(23), px(12), py(22));
-      panel(sprite, px(36), py(53), px(14), py(4), LV_RADIUS_CIRCLE, kBlue);
+      drawSpriteEye(sprite, px(22), py(24), px(12), py(20));
+      drawSpriteEye(sprite, px(52), py(24), px(12), py(20));
+      panel(sprite, px(33), py(45), px(4), py(7), LV_RADIUS_CIRCLE, kBlue);
       break;
     case Mood::kCurious:
       drawSpriteEye(sprite, px(20), py(19), px(14), py(28));
       drawSpriteEye(sprite, px(52), py(19), px(14), py(28));
-      panel(sprite, px(40), py(49), px(7), py(7), LV_RADIUS_CIRCLE, kSpriteEye);
+      panel(sprite, px(24), py(25), px(5), py(5), LV_RADIUS_CIRCLE, kMint);
+      panel(sprite, px(56), py(25), px(5), py(5), LV_RADIUS_CIRCLE, kMint);
       break;
     case Mood::kLove:
-      drawSpriteEye(sprite, px(17), py(20), px(18), py(25));
-      drawSpriteEye(sprite, px(51), py(20), px(18), py(25));
-      lv_obj_set_pos(label(sprite, "<3", color(kRed), &lv_font_montserrat_14), px(34), py(45));
+      drawSpriteEye(sprite, px(18), py(21), px(17), py(24), kRed);
+      drawSpriteEye(sprite, px(51), py(21), px(17), py(24), kRed);
+      panel(sprite, px(24), py(27), px(5), py(5), LV_RADIUS_CIRCLE, kSpriteEye);
+      panel(sprite, px(57), py(27), px(5), py(5), LV_RADIUS_CIRCLE, kSpriteEye);
       break;
     case Mood::kNormal:
     default:
       drawSpriteEye(sprite, px(21), py(18), px(13), py(30));
       drawSpriteEye(sprite, px(52), py(18), px(13), py(30));
       break;
+  }
   }
   if (showState) {
     lv_obj_t* state = label(parent, moodText(mood), color(mood == Mood::kLove ? kRed : kGreen));
@@ -287,7 +304,7 @@ void drawSpriteAt(lv_obj_t* parent, Mood mood, int x, int y, int width, int heig
 }
 
 void drawSprite(lv_obj_t* parent, Mood mood) {
-  drawSpriteAt(parent, mood, 30, 49, 72, 55, false);
+  drawSpriteAt(parent, mood, 30, 49, 72, 55, false, false);
 }
 
 void drawHeart(lv_obj_t* parent, int cx, int cy, int scale, uint32_t fill) {
@@ -327,6 +344,12 @@ void onDemoGoodClicked(lv_event_t* event);
 void onDemoDryClicked(lv_event_t* event);
 void onDemoHeartClicked(lv_event_t* event);
 
+void scheduleNextBlink(uint32_t now) {
+  ui.nextBlinkMs = now + kBlinkMinIntervalMs + ((now / 17) % kBlinkJitterMs);
+  ui.blinkUntilMs = 0;
+  ui.blinkClosed = false;
+}
+
 void wakeApp(Page page = Page::kHome) {
   ui.idleMode = false;
   ui.page = page;
@@ -338,6 +361,7 @@ void wakeApp(Page page = Page::kHome) {
 void enterIdle() {
   ui.idleMode = true;
   ui.idleSinceMs = millis();
+  scheduleNextBlink(ui.idleSinceMs);
   if (ui.chrome) lv_obj_add_flag(ui.chrome, LV_OBJ_FLAG_HIDDEN);
   renderIdle();
 }
@@ -613,9 +637,25 @@ void renderIdle() {
   ui.idleMood = nullptr;
   ui.idleHint = nullptr;
   lv_obj_clean(ui.content);
-  drawSpriteAt(ui.content, ui.mood, 21, 54, 198, 150, false);
+  drawSpriteAt(ui.content, ui.mood, 21, 54, 198, 150, false, ui.blinkClosed);
   ui.idleHint = label(ui.content, "tap", color(kSubtext), &lv_font_montserrat_8);
   lv_obj_align(ui.idleHint, LV_ALIGN_BOTTOM_MID, 0, -16);
+}
+
+bool updateIdleBlink(uint32_t now) {
+  if (!ui.idleMode || ui.pendingGift || ui.giftPopup) return false;
+  if (!ui.blinkClosed && static_cast<long>(now - ui.nextBlinkMs) >= 0) {
+    ui.blinkClosed = true;
+    ui.blinkUntilMs = now + kBlinkClosedMs;
+    renderIdle();
+    return true;
+  }
+  if (ui.blinkClosed && static_cast<long>(now - ui.blinkUntilMs) >= 0) {
+    scheduleNextBlink(now);
+    renderIdle();
+    return true;
+  }
+  return false;
 }
 
 void hideToast(lv_timer_t* timer) {
@@ -764,6 +804,7 @@ lv_obj_t* smartPlantCreate(lv_obj_t* parent) {
   ui.idleMode = true;
   ui.idleSinceMs = millis();
   ui.lastInteractionMs = millis();
+  scheduleNextBlink(ui.idleSinceMs);
   ui.root = lv_obj_create(parent);
   resetObject(ui.root);
   lv_obj_set_size(ui.root, 240, 240);
@@ -820,6 +861,7 @@ void smartPlantUpdate(int soilPercent, float temperatureC, float humidityPct, ui
     updateDemo();
     return;
   }
+  updateIdleBlink(now);
   const bool temperatureChanged = isnan(temperatureC) != isnan(ui.temperatureC) ||
       (!isnan(temperatureC) && temperatureC != ui.temperatureC);
   const bool humidityChanged = isnan(humidityPct) != isnan(ui.humidityPct) ||
