@@ -1,0 +1,164 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1360" height="370" viewBox="0 0 1360 370">
+  <defs>
+    <style>
+      .title { font: 600 15px "PingFang SC","Noto Sans CJK SC",sans-serif; fill: #e9fff2; }
+      .head { font: 600 17px "PingFang SC","Noto Sans CJK SC",sans-serif; fill: #e9fff2; }
+      .big { font: 600 34px "PingFang SC","Noto Sans CJK SC",sans-serif; fill: #e9fff2; }
+      .body { font: 500 11px "PingFang SC","Noto Sans CJK SC",sans-serif; fill: #d8f3e3; }
+      .small { font: 500 9px "PingFang SC","Noto Sans CJK SC",sans-serif; fill: #84ae9d; }
+      .green { fill: #50e495; }
+      .greenText { font: 500 10px "PingFang SC","Noto Sans CJK SC",sans-serif; fill: #50e495; }
+      .pinkText { font: 600 11px "PingFang SC","Noto Sans CJK SC",sans-serif; fill: #ff6f91; }
+      .outside { font: 500 12px "PingFang SC","Noto Sans CJK SC",sans-serif; fill: #526a61; }
+      .outsideBold { font: 600 15px "PingFang SC","Noto Sans CJK SC",sans-serif; fill: #15231e; }
+      .screen { fill: #07130f; stroke: #18352b; stroke-width: 1.5; }
+      .card { fill: #10251e; }
+      .chip { fill: #193a30; }
+      .line { stroke: #24473b; stroke-width: 1; }
+    </style>
+    <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
+    <clipPath id="c1"><circle cx="148" cy="172" r="120"/></clipPath>
+    <clipPath id="c2"><circle cx="414" cy="172" r="120"/></clipPath>
+    <clipPath id="c3"><circle cx="680" cy="172" r="120"/></clipPath>
+    <clipPath id="c4"><circle cx="946" cy="172" r="120"/></clipPath>
+    <clipPath id="c5"><circle cx="1212" cy="172" r="120"/></clipPath>
+  </defs>
+
+  <text x="28" y="25" class="outsideBold">Smart Plant 圆屏体验重排 v3</text>
+  <text x="28" y="45" class="outside">原则：待机留白、唤醒后分层、实时状态不与历史/共养抢空间</text>
+
+  <!-- Idle -->
+  <text x="108" y="340" class="outsideBold">01 待机</text>
+  <text x="91" y="358" class="outside">轻触进入应用</text>
+  <g clip-path="url(#c1)">
+    <circle cx="148" cy="172" r="120" class="screen"/>
+    <circle cx="148" cy="162" r="91" fill="#0a1b15"/>
+    <ellipse cx="117" cy="104" rx="20" ry="11" transform="rotate(27 117 104)" fill="#50e495"/>
+    <ellipse cx="156" cy="93" rx="27" ry="14" transform="rotate(-29 156 93)" fill="#51dc8a"/>
+    <circle cx="148" cy="176" r="68" fill="#07130f"/>
+    <g opacity=".55" filter="url(#softGlow)">
+      <rect x="109" y="141" width="19" height="64" rx="10" fill="#dffff0"/>
+      <rect x="168" y="141" width="19" height="64" rx="10" fill="#dffff0"/>
+    </g>
+    <rect x="109" y="141" width="19" height="64" rx="10" fill="#effff7"/>
+    <rect x="168" y="141" width="19" height="64" rx="10" fill="#effff7"/>
+    <text x="148" y="265" text-anchor="middle" class="greenText">轻触唤醒</text>
+    <circle cx="138" cy="280" r="2" fill="#314d42"/>
+    <circle cx="148" cy="280" r="2" fill="#50e495"/>
+    <circle cx="158" cy="280" r="2" fill="#314d42"/>
+  </g>
+  <circle cx="148" cy="172" r="120" fill="none" stroke="#173229"/>
+
+  <path d="M273 172h15" stroke="#b7cfc5" stroke-width="1.5"/>
+  <path d="M284 168l5 4-5 4" fill="none" stroke="#b7cfc5" stroke-width="1.5"/>
+  <text x="275" y="155" class="small">点击</text>
+
+  <!-- Status -->
+  <text x="366" y="340" class="outsideBold">02 植物状态</text>
+  <text x="354" y="358" class="outside">只展示今日关键信息</text>
+  <g clip-path="url(#c2)">
+    <circle cx="414" cy="172" r="120" class="screen"/>
+    <text x="350" y="79" class="small">正在照顾</text>
+    <text x="350" y="99" class="head">小龟背竹</text>
+    <rect x="454" y="84" width="40" height="18" rx="9" class="chip"/>
+    <text x="474" y="97" text-anchor="middle" class="greenText">良好</text>
+    <circle cx="367" cy="142" r="30" fill="#0a1b15"/>
+    <ellipse cx="357" cy="124" rx="8" ry="4" transform="rotate(25 357 124)" fill="#50e495"/>
+    <ellipse cx="373" cy="121" rx="11" ry="5" transform="rotate(-30 373 121)" fill="#51dc8a"/>
+    <rect x="357" y="135" width="8" height="20" rx="4" fill="#effff7"/>
+    <rect x="371" y="135" width="8" height="20" rx="4" fill="#effff7"/>
+    <text x="414" y="132" class="small">环境适宜度</text>
+    <text x="414" y="161" class="big">92</text>
+    <text x="455" y="159" class="greenText">/ 100</text>
+    <rect x="337" y="180" width="154" height="47" rx="15" class="card"/>
+    <text x="351" y="197" class="small">空气温度</text>
+    <text x="351" y="214" class="body">24°C</text>
+    <text x="401" y="197" class="small">空气湿度</text>
+    <text x="401" y="214" class="body">56%</text>
+    <text x="452" y="197" class="small">土壤</text>
+    <text x="452" y="214" class="body">--</text>
+    <rect x="344" y="242" width="140" height="29" rx="15" class="card"/>
+    <rect x="348" y="246" width="42" height="21" rx="11" class="chip"/>
+    <text x="369" y="260" text-anchor="middle" class="greenText">状态</text>
+    <text x="416" y="260" text-anchor="middle" class="small">记录</text>
+    <text x="463" y="260" text-anchor="middle" class="small">共养</text>
+  </g>
+  <circle cx="414" cy="172" r="120" fill="none" stroke="#173229"/>
+
+  <!-- Plant select -->
+  <text x="632" y="340" class="outsideBold">03 选择植物</text>
+  <text x="621" y="358" class="outside">五类植物可滚动选择</text>
+  <g clip-path="url(#c3)">
+    <circle cx="680" cy="172" r="120" class="screen"/>
+    <text x="619" y="80" class="head">选择植物</text>
+    <text x="619" y="97" class="small">你现在正在养哪一种？</text>
+    <rect x="607" y="111" width="146" height="27" rx="12" class="chip"/>
+    <circle cx="620" cy="124" r="5" fill="#50e495"/>
+    <text x="632" y="127" class="body">龟背竹</text>
+    <text x="742" y="127" text-anchor="end" class="greenText">已选择</text>
+    <rect x="607" y="143" width="146" height="27" rx="12" class="card"/>
+    <circle cx="620" cy="156" r="5" fill="#71ecad"/>
+    <text x="632" y="159" class="body">薄荷</text>
+    <rect x="607" y="175" width="146" height="27" rx="12" class="card"/>
+    <circle cx="620" cy="188" r="5" fill="#b4dd62"/>
+    <text x="632" y="191" class="body">多肉</text>
+    <rect x="607" y="207" width="146" height="27" rx="12" class="card"/>
+    <circle cx="620" cy="220" r="5" fill="#45c879"/>
+    <text x="632" y="223" class="body">白掌</text>
+    <text x="680" y="252" text-anchor="middle" class="small">向上滑动查看绿萝</text>
+    <text x="680" y="274" text-anchor="middle" class="greenText">完成选择</text>
+  </g>
+  <circle cx="680" cy="172" r="120" fill="none" stroke="#173229"/>
+
+  <!-- Trend -->
+  <text x="899" y="340" class="outsideBold">04 历史记录</text>
+  <text x="894" y="358" class="outside">图表替代密集文字</text>
+  <g clip-path="url(#c4)">
+    <circle cx="946" cy="172" r="120" class="screen"/>
+    <text x="887" y="80" class="head">生长趋势</text>
+    <text x="887" y="97" class="small">龟背竹 · 近 24 小时</text>
+    <rect x="879" y="111" width="134" height="86" rx="13" class="card"/>
+    <text x="890" y="128" class="small">湿度</text>
+    <path d="M890 177L910 161L930 164L950 144L970 150L991 134L1002 140" fill="none" stroke="#50e495" stroke-width="2"/>
+    <circle cx="1002" cy="140" r="4" fill="#50e495"/>
+    <path d="M890 177H1002" class="line"/>
+    <text x="890" y="190" class="small">00</text><text x="973" y="190" class="small">现在</text>
+    <rect x="879" y="204" width="64" height="31" rx="12" class="card"/>
+    <text x="889" y="217" class="small">平均温度</text>
+    <text x="889" y="230" class="body">24°C</text>
+    <rect x="949" y="204" width="64" height="31" rx="12" class="card"/>
+    <text x="959" y="217" class="small">评分</text>
+    <text x="959" y="230" class="greenText">92 良好</text>
+    <rect x="876" y="249" width="140" height="29" rx="15" class="card"/>
+    <text x="900" y="267" text-anchor="middle" class="small">状态</text>
+    <text x="946" y="267" text-anchor="middle" class="greenText">记录</text>
+    <text x="992" y="267" text-anchor="middle" class="small">共养</text>
+  </g>
+  <circle cx="946" cy="172" r="120" fill="none" stroke="#173229"/>
+
+  <!-- Care and demo -->
+  <text x="1151" y="340" class="outsideBold">05 共养 / 演示</text>
+  <text x="1149" y="358" class="outside">爱心反馈与评委模式</text>
+  <g clip-path="url(#c5)">
+    <circle cx="1212" cy="172" r="120" class="screen"/>
+    <text x="1154" y="79" class="head">共同照顾</text>
+    <text x="1154" y="97" class="small">2 位照顾者在线</text>
+    <rect x="1145" y="112" width="134" height="68" rx="14" class="card"/>
+    <circle cx="1159" cy="128" r="5" fill="#ff6f91"/>
+    <text x="1171" y="132" class="body">Luna 发送爱心</text>
+    <text x="1267" y="132" text-anchor="end" class="small">刚刚</text>
+    <circle cx="1159" cy="151" r="5" fill="#50e495"/>
+    <text x="1171" y="155" class="body">你记录了浇水</text>
+    <text x="1267" y="155" text-anchor="end" class="small">今天</text>
+    <rect x="1145" y="191" width="134" height="31" rx="15" fill="#ff6f91"/>
+    <text x="1212" y="211" text-anchor="middle" style="font:600 12px 'PingFang SC',sans-serif;fill:#07130f;">收到爱心  ♥</text>
+    <rect x="1145" y="230" width="82" height="29" rx="15" class="chip"/>
+    <text x="1186" y="248" text-anchor="middle" class="greenText">评委演示模式</text>
+    <rect x="1234" y="230" width="45" height="29" rx="15" class="card"/>
+    <text x="1256" y="248" text-anchor="middle" class="small">退出</text>
+    <text x="1212" y="275" text-anchor="middle" class="small">自动展示选择 · 状态 · 历史 · 爱心</text>
+  </g>
+  <circle cx="1212" cy="172" r="120" fill="none" stroke="#173229"/>
+</svg>

@@ -1,5 +1,6 @@
 #ifdef ATTRAX_ROUND_DIAG_ONLY
 #include <Arduino.h>
+SET_LOOP_TASK_STACK_SIZE(16 * 1024);
 #include <SPI.h>
 #ifndef BOARD_SCREEN_COMBO
 #define BOARD_SCREEN_COMBO 501
@@ -114,6 +115,7 @@ void loop() {
 
 #else
 #include <Arduino.h>
+SET_LOOP_TASK_STACK_SIZE(16 * 1024);
 #include <WiFi.h>
 #include <WebServer.h>
 #include <Wire.h>
@@ -124,6 +126,7 @@ void loop() {
 #define USE_TFT_ESPI_LIBRARY
 #include <lvgl.h>
 #include "roundsidplay/Seeed_Arduino_RoundDisplay-main/src/lv_xiao_round_screen.h"
+#include "smart_plant_app.h"
 #else
 #include <U8g2lib.h>
 #endif
@@ -211,16 +214,6 @@ WebServer g_server(80);
 #ifdef ATTRAX_ROUND_DISPLAY_PORT
 lv_obj_t* g_uiRoot = nullptr;
 lv_obj_t* g_uiModeOverlay = nullptr;
-lv_obj_t* g_uiTitle = nullptr;
-lv_obj_t* g_uiApLabel = nullptr;
-lv_obj_t* g_uiMicLabel = nullptr;
-lv_obj_t* g_uiTempLabel = nullptr;
-lv_obj_t* g_uiHumLabel = nullptr;
-lv_obj_t* g_uiStatusLabel = nullptr;
-lv_obj_t* g_uiAudioLabel = nullptr;
-lv_obj_t* g_uiBleLabel = nullptr;
-lv_obj_t* g_uiMicBar = nullptr;
-lv_obj_t* g_uiTempBar = nullptr;
 #else
 // CRITICAL: Must use Software I2C. Hardware I2C (even Wire1) will cause a fatal panic/deadlock with Camera/I2S.
 // Reverted back to SSD1306 as SSD1315 caused a blank screen on this specific board revision.
@@ -244,6 +237,13 @@ unsigned long g_oledBreathingCycleMs = 4000;
 uint8_t g_oledMaxBrightness = 255;
 uint8_t g_oledDisplayMode = 0; // 0: 数据文字, 1: 全黑息屏, 2: 半屏纯白, 3: 全屏纯白
 bool g_autoProximityOled = true; // 默认开启雷达互动模式，可由Web/BLE/HTTP控制
+#ifdef ATTRAX_ROUND_DISPLAY_PORT
+bool g_loveBreathingActive = false;
+unsigned long g_loveBreathingUntilMs = 0;
+unsigned long g_savedBreathingCycleMs = 0;
+uint8_t g_savedDisplayMode = 0;
+uint8_t g_savedMaxBrightness = 255;
+#endif
 unsigned long g_lastProximityUpdateMs = 0;
 unsigned long g_lastPersonDetectedMs = 0;
 unsigned long g_lastSensorPollMs = 0;
@@ -827,89 +827,42 @@ void setDisplayBacklight(uint8_t value) {
   ledcWrite(kDisplayBacklightPin, value);
 }
 
-lv_obj_t* createRoundLabel(lv_obj_t* parent, const char* text, int x, int y, const lv_font_t* font,
-                           lv_color_t color) {
-  lv_obj_t* label = lv_label_create(parent);
-  lv_label_set_text(label, text);
-  lv_obj_set_pos(label, x, y);
-  lv_obj_set_style_text_font(label, font, 0);
-  lv_obj_set_style_text_color(label, color, 0);
-  lv_obj_set_style_text_letter_space(label, 0, 0);
-  return label;
+void startHeartBacklight() {
+  if (!g_loveBreathingActive) {
+    g_savedBreathingCycleMs = g_oledBreathingCycleMs;
+    g_savedDisplayMode = g_oledDisplayMode;
+    g_savedMaxBrightness = g_oledMaxBrightness;
+  }
+  g_loveBreathingActive = true;
+  g_loveBreathingUntilMs = millis() + 8000;
+  g_oledDisplayMode = 0;
+  g_oledMaxBrightness = 255;
+  g_oledBreathingCycleMs = 900;
 }
 
-void styleRoundBar(lv_obj_t* bar, lv_color_t indicatorColor) {
-  lv_obj_set_size(bar, 78, 7);
-  lv_obj_set_style_radius(bar, 4, 0);
-  lv_obj_set_style_bg_color(bar, lv_color_hex(0x1e293b), 0);
-  lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, 0);
-  lv_obj_set_style_radius(bar, 4, LV_PART_INDICATOR);
-  lv_obj_set_style_bg_color(bar, indicatorColor, LV_PART_INDICATOR);
-  lv_bar_set_range(bar, 0, 100);
+void receivePartnerHeart(const String& sender) {
+  startHeartBacklight();
+  smartPlantReceiveHeart(sender.c_str());
+  g_lastOledRefreshMs = 0;
+}
+
+void updatePartnerHeartEffect() {
+  if (!g_loveBreathingActive) return;
+  if (static_cast<long>(millis() - g_loveBreathingUntilMs) < 0) return;
+  g_loveBreathingActive = false;
+  g_oledBreathingCycleMs = g_savedBreathingCycleMs;
+  g_oledDisplayMode = g_savedDisplayMode;
+  g_oledMaxBrightness = g_savedMaxBrightness;
+  g_lastOledRefreshMs = 0;
 }
 
 void createRoundUi() {
   lv_obj_t* screen = lv_scr_act();
-  lv_obj_set_style_bg_color(screen, lv_color_hex(0x07111f), 0);
+  lv_obj_set_style_bg_color(screen, lv_color_hex(0x07130f), 0);
   lv_obj_set_style_bg_opa(screen, LV_OPA_COVER, 0);
   lv_obj_clear_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
 
-  g_uiRoot = lv_obj_create(screen);
-  lv_obj_remove_style_all(g_uiRoot);
-  lv_obj_set_size(g_uiRoot, kDisplayWidth, kDisplayHeight);
-  lv_obj_set_pos(g_uiRoot, 0, 0);
-  lv_obj_clear_flag(g_uiRoot, LV_OBJ_FLAG_SCROLLABLE);
-
-  lv_obj_t* ring = lv_obj_create(g_uiRoot);
-  lv_obj_remove_style_all(ring);
-  lv_obj_set_size(ring, 232, 232);
-  lv_obj_center(ring);
-  lv_obj_set_style_radius(ring, LV_RADIUS_CIRCLE, 0);
-  lv_obj_set_style_border_width(ring, 2, 0);
-  lv_obj_set_style_border_color(ring, lv_color_hex(0x243244), 0);
-  lv_obj_set_style_bg_opa(ring, LV_OPA_TRANSP, 0);
-  lv_obj_clear_flag(ring, LV_OBJ_FLAG_SCROLLABLE);
-
-  g_uiTitle = createRoundLabel(g_uiRoot, "Attrax H2O", 70, 18, &lv_font_montserrat_14, lv_color_hex(0xf8fafc));
-  g_uiApLabel = createRoundLabel(g_uiRoot, "AP starting", 56, 42, &lv_font_montserrat_14, lv_color_hex(0x93c5fd));
-
-  lv_obj_t* tempPanel = lv_obj_create(g_uiRoot);
-  lv_obj_remove_style_all(tempPanel);
-  lv_obj_set_size(tempPanel, 92, 68);
-  lv_obj_set_pos(tempPanel, 28, 72);
-  lv_obj_set_style_radius(tempPanel, 8, 0);
-  lv_obj_set_style_bg_color(tempPanel, lv_color_hex(0x101827), 0);
-  lv_obj_set_style_bg_opa(tempPanel, LV_OPA_COVER, 0);
-  lv_obj_set_style_border_width(tempPanel, 1, 0);
-  lv_obj_set_style_border_color(tempPanel, lv_color_hex(0x263244), 0);
-  lv_obj_clear_flag(tempPanel, LV_OBJ_FLAG_SCROLLABLE);
-  createRoundLabel(tempPanel, "TEMP", 10, 8, &lv_font_montserrat_14, lv_color_hex(0x94a3b8));
-  g_uiTempLabel = createRoundLabel(tempPanel, "--.-C", 10, 28, &lv_font_montserrat_14, lv_color_hex(0xfacc15));
-  g_uiTempBar = lv_bar_create(tempPanel);
-  styleRoundBar(g_uiTempBar, lv_color_hex(0xfacc15));
-  lv_obj_set_pos(g_uiTempBar, 10, 54);
-
-  lv_obj_t* micPanel = lv_obj_create(g_uiRoot);
-  lv_obj_remove_style_all(micPanel);
-  lv_obj_set_size(micPanel, 92, 68);
-  lv_obj_set_pos(micPanel, 122, 72);
-  lv_obj_set_style_radius(micPanel, 8, 0);
-  lv_obj_set_style_bg_color(micPanel, lv_color_hex(0x101827), 0);
-  lv_obj_set_style_bg_opa(micPanel, LV_OPA_COVER, 0);
-  lv_obj_set_style_border_width(micPanel, 1, 0);
-  lv_obj_set_style_border_color(micPanel, lv_color_hex(0x263244), 0);
-  lv_obj_clear_flag(micPanel, LV_OBJ_FLAG_SCROLLABLE);
-  createRoundLabel(micPanel, "MIC", 10, 8, &lv_font_montserrat_14, lv_color_hex(0x94a3b8));
-  g_uiMicLabel = createRoundLabel(micPanel, "RMS --", 10, 27, &lv_font_montserrat_14, lv_color_hex(0x67e8f9));
-  g_uiMicBar = lv_bar_create(micPanel);
-  styleRoundBar(g_uiMicBar, lv_color_hex(0x22d3ee));
-  lv_obj_set_pos(g_uiMicBar, 10, 54);
-
-  g_uiHumLabel = createRoundLabel(g_uiRoot, "Humidity --%", 46, 150, &lv_font_montserrat_14, lv_color_hex(0xbfdbfe));
-  g_uiStatusLabel = createRoundLabel(g_uiRoot, "CAM OFF  SOIL OFF  DIST OFF", 28, 174, &lv_font_montserrat_14,
-                                     lv_color_hex(0xcbd5e1));
-  g_uiAudioLabel = createRoundLabel(g_uiRoot, "AUDIO OFF", 42, 198, &lv_font_montserrat_14, lv_color_hex(0xbbf7d0));
-  g_uiBleLabel = createRoundLabel(g_uiRoot, "BLE OFF", 137, 198, &lv_font_montserrat_14, lv_color_hex(0xfecaca));
+  g_uiRoot = smartPlantCreate(screen);
 
   g_uiModeOverlay = lv_obj_create(screen);
   lv_obj_remove_style_all(g_uiModeOverlay);
@@ -917,14 +870,6 @@ void createRoundUi() {
   lv_obj_set_pos(g_uiModeOverlay, 0, 0);
   lv_obj_add_flag(g_uiModeOverlay, LV_OBJ_FLAG_HIDDEN);
   lv_obj_clear_flag(g_uiModeOverlay, LV_OBJ_FLAG_SCROLLABLE);
-}
-
-const char* audioStateText() {
-  if (g_audioPlaying) return "AUDIO PLAY";
-  if (!g_audioEnabled) return "AUDIO OFF";
-  if (g_audioMode == "manual") return "AUDIO MAN";
-  if (g_audioMode == "scheduled") return "AUDIO SCH";
-  return "AUDIO LNK";
 }
 
 void updateRoundLvglUi() {
@@ -948,27 +893,8 @@ void updateRoundLvglUi() {
 
   lv_obj_clear_flag(g_uiRoot, LV_OBJ_FLAG_HIDDEN);
   lv_obj_add_flag(g_uiModeOverlay, LV_OBJ_FLAG_HIDDEN);
-
-  lv_label_set_text_fmt(g_uiApLabel, "AP %s", ipToString(WiFi.softAPIP()).c_str());
-  lv_label_set_text_fmt(g_uiMicLabel, g_micReady ? "RMS %lu" : "RMS FAIL", (unsigned long)g_micRms);
-  lv_bar_set_value(g_uiMicBar, g_micReady ? constrain((int)(g_micRms / 60), 0, 100) : 0, LV_ANIM_OFF);
-
-  if (g_dht20Ready && !isnan(g_airTemperatureC) && !isnan(g_airHumidityPct)) {
-    lv_label_set_text_fmt(g_uiTempLabel, "%.1fC", g_airTemperatureC);
-    lv_label_set_text_fmt(g_uiHumLabel, "Humidity %.0f%%", g_airHumidityPct);
-    lv_bar_set_value(g_uiTempBar, constrain((int)((g_airTemperatureC + 10.0f) * 2.0f), 0, 100), LV_ANIM_OFF);
-  } else {
-    lv_label_set_text_fmt(g_uiTempLabel, "%s", g_dht20Status.c_str());
-    lv_label_set_text(g_uiHumLabel, "Humidity --%");
-    lv_bar_set_value(g_uiTempBar, 0, LV_ANIM_OFF);
-  }
-
-  lv_label_set_text_fmt(g_uiStatusLabel, "CAM %s  SOIL OFF  DIST %s",
-                        g_cameraReady ? g_cameraSensor.c_str() : g_cameraError.c_str(),
-                        g_ultrasonicStatus.c_str());
-  lv_label_set_text(g_uiAudioLabel, audioStateText());
-  lv_label_set_text(g_uiBleLabel, g_bleConnected ? "BLE ON" : "BLE OFF");
-  lv_obj_set_style_text_color(g_uiBleLabel, g_bleConnected ? lv_color_hex(0xbbf7d0) : lv_color_hex(0xfecaca), 0);
+  smartPlantUpdate(g_soilPercent, g_airTemperatureC, g_airHumidityPct,
+                   static_cast<uint8_t>(WiFi.softAPgetStationNum()));
 }
 #endif
 
@@ -1440,6 +1366,13 @@ String buildIndexHtml() {
   html += "<button onclick='loadImg(\"/capture-colorbar\")'>Colorbar</button>";
   html += "<button onclick='fetch(\"/led/on\",{method:\"POST\"})'>LED ON</button>";
   html += "<button onclick='fetch(\"/led/off\",{method:\"POST\"})'>LED OFF</button></div>";
+#ifdef ATTRAX_ROUND_DISPLAY_PORT
+  html += "<div class='sensor'><strong>Care Together</strong><p>Send a moment of care to the plant display.</p>";
+  html += "<input id='heartFrom' value='Luna' maxlength='16' placeholder='Your name'> ";
+  html += "<button onclick='sendHeart()' style='background:#ff6685'>Send heart &lt;3</button>";
+  html += "<button onclick='startPlantDemo()'>Judge demo</button>";
+  html += "<div id='heartState'></div></div>";
+#endif
   
   html += "<div class='sensor'><strong>Plant Audio (Buzzer)</strong>";
   html += "<div id='audioState' style='margin-bottom:8px'>Loading...</div>";
@@ -1469,6 +1402,13 @@ String buildIndexHtml() {
   html += "document.getElementById('audioPattern').value=d.pattern;";
   html += "}catch(e){}}";
   html += "async function setAudioConfig(){const m=document.getElementById('audioMode').value;const p=document.getElementById('audioPattern').value;await fetch('/audio/config?mode='+m+'&pattern='+p,{method:'POST'});pollAudio();}";
+#ifdef ATTRAX_ROUND_DISPLAY_PORT
+  html += "async function sendHeart(){const n=encodeURIComponent(document.getElementById('heartFrom').value||'Partner');";
+  html += "const r=await fetch('/plant/heart?from='+n,{method:'POST'});";
+  html += "document.getElementById('heartState').textContent=r.ok?'Heart sent to display!':'Send failed';}";
+  html += "async function startPlantDemo(){const r=await fetch('/plant/demo',{method:'POST'});";
+  html += "document.getElementById('heartState').textContent=r.ok?'Demo started on display':'Demo failed';}";
+#endif
   html += "setInterval(pollAudio, 2000); pollAudio();";
   html += "async function pollMic(){try{const r=await fetch('/audio-frame');const d=await r.json();if(d.ok&&d.samples){";
   html += "const w=ctx.canvas.width;const h=ctx.canvas.height;ctx.clearRect(0,0,w,h);ctx.beginPath();ctx.strokeStyle='#0f0';ctx.lineWidth=2;";
@@ -1592,6 +1532,22 @@ void setupWebServer() {
     }
     g_server.send(200, "application/json", "{\"ok\":true}");
   });
+#ifdef ATTRAX_ROUND_DISPLAY_PORT
+  g_server.on("/plant/heart", HTTP_POST, []() {
+    String sender = g_server.hasArg("from") ? g_server.arg("from") : "Partner";
+    sender.trim();
+    if (sender.length() == 0) sender = "Partner";
+    if (sender.length() > 16) sender = sender.substring(0, 16);
+    receivePartnerHeart(sender);
+    Serial.printf("Plant heart received from %s\n", sender.c_str());
+    g_server.send(200, "application/json", "{\"ok\":true,\"effect\":\"heartbeat\"}");
+  });
+  g_server.on("/plant/demo", HTTP_POST, []() {
+    smartPlantStartDemo();
+    Serial.println("Plant judge demo started");
+    g_server.send(200, "application/json", "{\"ok\":true,\"demo\":\"started\"}");
+  });
+#endif
   g_server.on("/status", HTTP_GET, []() {
     Serial.println("GET /status");
     String json = "{\"camera_ready\":";
@@ -1867,6 +1823,8 @@ void updateProximityOled() {
 void loopImpl() {
 #ifdef ATTRAX_ROUND_DISPLAY_PORT
   lv_timer_handler();
+  updatePartnerHeartEffect();
+  if (smartPlantConsumeBacklightRequest()) startHeartBacklight();
 #endif
   g_server.handleClient();
   pollMic();

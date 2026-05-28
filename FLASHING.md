@@ -1,6 +1,10 @@
 # Round Display Firmware Flashing
 
-This project is an Arduino CLI compatible firmware for Seeed Studio XIAO ESP32S3 with the XIAO Round Display.
+This project is an Arduino CLI compatible Smart Plant firmware for Seeed Studio XIAO ESP32S3 with the XIAO Round Display.
+
+After flashing, connect a phone to the `XIAO-CAM-TEST-3` Wi-Fi network and visit
+`http://192.168.4.1`. The web control page can send a heart to the display and
+trigger the heartbeat backlight animation.
 
 ## Requirements
 
@@ -55,11 +59,11 @@ arduino-cli compile \
   .
 ```
 
-Expected current firmware size is about:
+Firmware size varies slightly as the UI evolves. A successful Smart Plant build should end with output similar to:
 
 ```text
-Sketch uses 1402659 bytes (41%) of program storage space.
-Global variables use 116508 bytes (35%) of dynamic memory.
+Sketch uses ... bytes (...) of program storage space.
+Global variables use ... bytes (...) of dynamic memory.
 ```
 
 ## Upload
